@@ -12,7 +12,7 @@ export default function AgentsPage() {
       <PageHeader
         title="Investor agents"
         kicker="Framework studio / 16 perspectives"
-        description="Run real computed ratios, DCF, risk, and technicals through distinct investor frameworks."
+        description="Pick a few famous investing styles and hear what each would do with this stock or fund today."
       />
       <Suspense>
         <AgentsTool />

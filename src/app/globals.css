@@ -149,8 +149,6 @@ pre { white-space: pre-wrap; font-size: 0.8rem; color: var(--muted); }
 .card { border: 1px solid var(--border); padding: 16px; background: var(--surface); }
 .card h3 { font-size: 1.15rem; }
 
-.grid-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-.grid-inputs .input { text-transform: none; }
 
 @media (max-width: 760px) {
   .hero { min-height: 460px; padding: 1.25rem 1.25rem 1.7rem; background-position: 58% center; }

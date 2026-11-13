@@ -5,7 +5,6 @@ import { unstable_cache } from "next/cache";
 import { CACHE_SECONDS, RISK_RANGE } from "./config";
 import { assembleMetrics } from "./agents/metrics";
 import type { Metrics } from "./agents/prompt";
-import { annualizedVolatility, historicalVar, sharpeRatio } from "./analytics/risk";
 import {
   buildSummary,
   buyAnswer,
@@ -22,7 +21,7 @@ import * as sec from "./data/sec";
 import type { Bar, Fundamentals, History, Profile } from "./data/types";
 import { FUND_TYPES, getDividends, getHistory, KINDS } from "./data/yahoo";
 
-/** Everything the dashboard, Analytics, and the personas need for one ticker. */
+/** Everything the dashboard and the personas need for one ticker. */
 export type Lookup = {
   ticker: string;
   name: string;
@@ -36,13 +35,6 @@ export type Lookup = {
   buy: BuyAnswer;
   metrics: Metrics;
   hasFundamentals: boolean;
-  analytics: {
-    freeCashFlow: number | null;
-    sharesOutstanding: number | null;
-    volatility: number | null;
-    sharpe: number | null;
-    var95: number | null;
-  };
 };
 
 const optional = <T>(promise: Promise<T>): Promise<T | null> => promise.catch(() => null);
@@ -69,14 +61,6 @@ function priceOnly(price: number, isFund: boolean): Fundamentals {
     sharesOutstanding: null,
     earningsGrowth: null,
   };
-}
-
-function safe<T>(compute: () => T): T | null {
-  try {
-    return compute();
-  } catch {
-    return null;
-  }
 }
 
 async function buildLookup(ticker: string): Promise<Lookup> {
@@ -106,8 +90,6 @@ async function buildLookup(ticker: string): Promise<Lookup> {
   const metrics = assembleMetrics(fundamentals, closes, dividends, macro, longBars);
   const summary = buildSummary(closes);
   const levels = priceLevels(closes, summary);
-  const volatility = safe(() => annualizedVolatility(closes));
-  const var95 = safe(() => historicalVar(closes));
 
   return {
     ticker,
@@ -122,13 +104,6 @@ async function buildLookup(ticker: string): Promise<Lookup> {
     buy: buyAnswer(summary, levels, currency),
     metrics,
     hasFundamentals: companyFigures != null,
-    analytics: {
-      freeCashFlow: fundamentals.freeCashFlow,
-      sharesOutstanding: fundamentals.sharesOutstanding,
-      volatility,
-      sharpe: safe(() => sharpeRatio(closes)),
-      var95,
-    },
   };
 }
 

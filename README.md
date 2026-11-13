@@ -8,7 +8,6 @@ Fincent rebuilt in JavaScript (Next.js) to run on Vercel, so it never goes to sl
 |---|---|
 | **Dashboard** (`/`) | Enter a ticker. See what it is and why people buy it, the price, how it has moved in dollars ("Up $12.40 a share over the past month", "$1,000 put in a month ago would be about $1,016 today"), "Should I buy today?" with prices to watch, and the investors |
 | **Snapshot** (`/snapshot`) | Upload a screenshot of a post, chart, or app screen. Fincent reads it, checks each claim against real data (✅ ⚠️ ❌ ❔), and explains it in plain words |
-| **Analytics** (`/analytics`) | DCF calculator and risk numbers. This is the one page that shows the math |
 | **Agents** (`/agents`) | Ask the 16 investor personas about a ticker |
 
 The menu is always visible. The ticker is kept in the address (`?t=SPY`), so it carries between pages. No ticker is filled in by default.
@@ -36,6 +35,7 @@ All free, no accounts to sign up for:
 - Key numbers (fees, dividend yield, P/E, profit margin, swings), "How we got this", and "Numbers given to the personas".
 - Fund fee and holdings overlap in Snapshot.
 - FMP, which needed its own key.
+- The Analytics page (DCF calculator and risk numbers).
 - The data-provider picker and the two replacement ideas from the Streamlit version.
 
 ## Settings in Vercel
