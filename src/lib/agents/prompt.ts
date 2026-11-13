@@ -59,6 +59,7 @@ const PERCENT_METRICS = new Set([
 const INSTRUCTIONS = [
   "Base your answer on only the numbers provided above. Do not invent figures. Missing values are marked N/A. If one you would normally use is missing, move on without dwelling on it.",
   "Your reader has never invested before and just heard about this stock or fund. Use everyday words, as if talking to a friend. Avoid finance terms such as P/E, RSI, DCF, moat, or margin of safety. If you need one, explain it in the same sentence.",
+  "Never write percentages, ratios, fees, or yields in your answer. The numbers above are for your thinking only. Talk in plain words, and use dollar prices only.",
   "Stay true to how you think, write in the first person, and keep the whole answer under 100 words.",
   "Use exactly these four parts, with these bold labels:",
   "**My take:** one sentence on how you see it.",

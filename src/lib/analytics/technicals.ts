@@ -2,6 +2,8 @@
 // isn't enough history, and the rules treat null as "no opinion".
 // These read the chart, not the business, and the page says so.
 
+import { fmtPrice } from "../format";
+
 export const RSI_PERIOD = 14;
 export const RSI_OVERSOLD = 30;
 export const RSI_OVERBOUGHT = 70;
@@ -172,8 +174,7 @@ export type BuyAnswer = { answer: string; nextStep: string };
 
 /** Plain answer to "should I buy today?", with the prices to watch. */
 export function buyAnswer(summary: Summary, levels: Levels, currency: string | null): BuyAnswer {
-  const money = (value: number) =>
-    `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency ?? ""}`.trim();
+  const money = (value: number) => fmtPrice(value, currency);
   const { betterPrice, trendLine } = levels;
 
   if (trendLine != null && summary.price <= trendLine) {

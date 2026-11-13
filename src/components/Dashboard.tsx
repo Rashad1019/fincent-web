@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { DEFAULT_PERIOD, HISTORY_PERIODS } from "@/lib/config";
-import { fmtPct, fmtPrice } from "@/lib/format";
+import { fmtPrice } from "@/lib/format";
 import { periodReturn } from "@/lib/analytics/technicals";
 import type { Bar } from "@/lib/data/types";
 import type { Lookup } from "@/lib/lookup";
@@ -16,20 +16,17 @@ const MOOD_ICONS: Record<string, string> = { Bullish: "🟢", Neutral: "🟡", B
 const ENTRY_ICONS: Record<string, string> = { "Good entry": "🟢", "Possible entry": "🟡", "No clear signal": "🟡", Wait: "🔴" };
 
 export function TickerTitle({ data }: { data: Lookup }) {
-  const { profile } = data;
-  // A fund's sector is its manager's business, not what the fund holds.
-  const extras = data.isFund ? [profile.kind, profile.family, profile.category] : [profile.kind, profile.sector];
   return (
     <div className="ticker-title">
       <h2>{data.name}</h2>
       <div className="price">{fmtPrice(data.price, data.currency)}</div>
-      <div className="facts">{[data.ticker, ...extras].filter(Boolean).join(" · ")}</div>
+      <div className="facts">{[data.ticker, data.profile.kind].filter(Boolean).join(" · ")}</div>
     </div>
   );
 }
 
 function WhatItIs({ ticker }: { ticker: string }) {
-  const [about, setAbout] = useState<{ text: string; writtenByAi: boolean } | null>(null);
+  const [about, setAbout] = useState<{ text: string } | null>(null);
   useEffect(() => {
     let cancelled = false;
     setAbout(null);
@@ -47,7 +44,6 @@ function WhatItIs({ ticker }: { ticker: string }) {
       {about ? (
         <>
           <p style={{ color: "var(--text)" }}>{about.text}</p>
-          {about.writtenByAi && <p className="small">Written by AI from public fund and company information.</p>}
         </>
       ) : (
         <p><span className="spinner" />Writing a plain explanation...</p>
@@ -56,7 +52,7 @@ function WhatItIs({ ticker }: { ticker: string }) {
   );
 }
 
-function Performance({ ticker }: { ticker: string }) {
+function Performance({ ticker, currency }: { ticker: string; currency: string | null }) {
   const labels = Object.keys(HISTORY_PERIODS);
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [candles, setCandles] = useState(false);
@@ -80,7 +76,10 @@ function Performance({ ticker }: { ticker: string }) {
     };
   }, [ticker, period]);
 
-  const change = bars ? periodReturn(bars.map((b) => b.close)) : null;
+  const closes = bars?.map((b) => b.close) ?? [];
+  const change = closes.length >= 2 ? periodReturn(closes) : null;
+  const perShare = change != null ? closes[closes.length - 1] - closes[0] : null;
+  const span = period.replace(/^1 /, "");
   return (
     <section>
       <h2>How it has done</h2>
@@ -91,10 +90,15 @@ function Performance({ ticker }: { ticker: string }) {
           </button>
         ))}
       </div>
-      {change != null && (
-        <div className={`move ${change >= 0 ? "up" : "down"}`}>
-          {change >= 0 ? "Up" : "Down"} {fmtPct(Math.abs(change))} over the past {period.replace(/^1 /, "")}
-        </div>
+      {change != null && perShare != null && (
+        <>
+          <div className={`move ${change >= 0 ? "up" : "down"}`}>
+            {change >= 0 ? "Up" : "Down"} {fmtPrice(Math.abs(perShare), currency)} a share over the past {span}
+          </div>
+          <p style={{ color: "var(--text)", marginTop: 4 }}>
+            {fmtPrice(1000, currency)} put in {period.startsWith("1 ") ? `a ${span}` : span} ago would be about {fmtPrice(1000 * (1 + change), currency)} today.
+          </p>
+        </>
       )}
       <label className="toggle">
         <input type="checkbox" checked={candles} onChange={(e) => setCandles(e.target.checked)} /> Show candlesticks
@@ -122,36 +126,9 @@ function GoodTime({ data }: { data: Lookup }) {
         </div>
       </div>
       <p style={{ color: "var(--text)" }}>{data.entry.why}</p>
-      <details>
-        <summary>How we got this</summary>
-        <div>
-          <ul>{data.mood.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
-          <p className="small">
-            Simple rules on a year of daily prices: moving averages, RSI momentum, and the one-month move. They read
-            the chart, not the business, and they can be wrong.
-          </p>
-        </div>
-      </details>
       <p className="small">
         Prices to watch come from past price moves. They are not predictions. Information only, not financial advice.
       </p>
-    </section>
-  );
-}
-
-function KeyNumbers({ data }: { data: Lookup }) {
-  if (!data.keyNumbers.length) return null;
-  return (
-    <section>
-      <h2>Key numbers</h2>
-      <div className="metrics">
-        {data.keyNumbers.map(({ label, value }) => (
-          <div key={label} className="metric">
-            <div className="metric-label">{label}</div>
-            <div className="metric-value">{value}</div>
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
@@ -168,9 +145,8 @@ export default function Dashboard() {
         <>
           <TickerTitle data={data} />
           <WhatItIs ticker={data.ticker} />
-          <Performance ticker={data.ticker} />
+          <Performance ticker={data.ticker} currency={data.currency} />
           <GoodTime data={data} />
-          <KeyNumbers data={data} />
           <InvestorPanel key={data.ticker} ticker={data.ticker} />
         </>
       )}

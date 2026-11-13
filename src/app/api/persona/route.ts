@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   try {
     const reply = await ask(PERSONAS[persona], prompt, { deadline: started + BUDGET_MS });
     const [verdict, conviction] = parseVerdict(reply);
-    return NextResponse.json({ persona, reply: withoutVerdict(reply), verdict, conviction, prompt });
+    return NextResponse.json({ persona, reply: withoutVerdict(reply), verdict, conviction });
   } catch (error) {
     if (!(error instanceof OpenRouterError)) throw error;
     console.warn(`Persona ${persona} failed for ${ticker}:`, error.message);

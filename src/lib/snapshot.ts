@@ -1,11 +1,9 @@
 import "server-only";
 
 import { ask, SNAPSHOT_ATTEMPTS, type ContentPart } from "./agents/openrouter";
-import { periodReturn } from "./analytics/technicals";
 import { cleanTicker } from "./config";
-import { fmtPct, fmtPrice } from "./format";
+import { fmtPrice } from "./format";
 import { dailyHistory, lookup } from "./lookup";
-import * as fmp from "./data/fmp";
 
 // Screenshot breakdown: read the image, check what it claims against real
 // data, then explain it in plain words.
@@ -80,29 +78,24 @@ export function normalizeExtracted(raw: Partial<Extracted> | null): Extracted {
   };
 }
 
-/** Share of the first fund's weight that both funds hold, or null without holdings. */
-export function overlap(a: fmp.Holding[], b: fmp.Holding[]): number | null {
-  if (!a.length || !b.length) return null;
-  const weights = new Map(b.map((h) => [h.symbol, h.weight]));
-  return a.reduce((sum, h) => sum + Math.min(h.weight, weights.get(h.symbol) ?? 0), 0);
+/** "Up $12.40 a share", in plain words. */
+function move(closes: number[], currency: string | null): string {
+  if (closes.length < 2) return "Not available";
+  const change = closes[closes.length - 1] - closes[0];
+  return `${change >= 0 ? "Up" : "Down"} ${fmtPrice(Math.abs(change), currency)} a share`;
 }
 
 async function factsFor(ticker: string) {
   const data = await lookup(ticker);
-  const year = await dailyHistory(ticker, "1y", 369).catch(() => null);
-  const month = year ? year.bars.slice(-22).map((bar) => bar.close) : [];
+  const year = await dailyHistory(ticker, "1y").catch(() => null);
+  const closes = year?.bars.map((bar) => bar.close) ?? [];
   const facts: Record<string, string> = {
-    Name: data.name,
     Type: data.profile.kind ?? (data.isFund ? "Fund" : "Stock"),
     Price: fmtPrice(data.price, data.currency),
-    "Change over the past month": fmtPct(periodReturn(month)),
-    "Change over the past year": fmtPct(year ? periodReturn(year.bars.map((b) => b.close)) : null),
-    "Dividend yield": fmtPct(data.metrics.dividend_yield as number | null),
+    "Past month": move(closes.slice(-22), data.currency),
+    "Past year": move(closes, data.currency),
     "Trend right now": data.mood.label,
   };
-  if (data.isFund) facts["Yearly fee (expense ratio)"] = fmtPct(data.profile.expenseRatio);
-  if (data.profile.category) facts.Category = data.profile.category;
-  if (!data.isFund && data.profile.sector) facts.Sector = data.profile.sector;
   return { data, facts };
 }
 
@@ -118,22 +111,8 @@ export async function breakDown(imageDataUrl: string, deadline: number): Promise
     await Promise.all(extracted.tickers.map((ticker) => factsFor(ticker).catch(() => null)))
   ).filter((entry): entry is NonNullable<typeof entry> => entry != null);
 
-  const sharedFacts: Record<string, string> = {};
-  const funds = looked.filter((entry) => entry.data.isFund);
-  if (funds.length >= 2) {
-    const [a, b] = funds;
-    const [holdingsA, holdingsB] = await Promise.all([
-      fmp.getHoldings(a.data.ticker).catch(() => []),
-      fmp.getHoldings(b.data.ticker).catch(() => []),
-    ]);
-    const shared = overlap(holdingsA, holdingsB);
-    sharedFacts[`Holdings overlap between ${a.data.ticker} and ${b.data.ticker}`] =
-      shared == null ? "Not available" : fmtPct(shared);
-  }
-
   const factBlock = looked
     .map(({ data, facts }) => [`${data.ticker}:`, ...Object.entries(facts).map(([k, v]) => `- ${k}: ${v}`)].join("\n"))
-    .concat(Object.entries(sharedFacts).map(([k, v]) => `${k}: ${v}`))
     .join("\n\n");
 
   const breakdownPrompt = `A reader shared a screenshot. Here is what it shows:
@@ -145,13 +124,14 @@ ${factBlock || "No data could be found for these tickers."}
 Reply with JSON only, no other text, in this shape:
 {"overview": "two or three plain sentences on what the post is saying",
  "tickers": [{"ticker": "QQQM", "plain": "one or two sentences on what it is and what you own"}],
- "claims": [{"text": "the claim", "verdict": "correct", "detail": "the real figure, in one short sentence"}],
+ "claims": [{"text": "the claim", "verdict": "correct", "detail": "what the real data shows, in one short plain sentence"}],
  "answer": "a plain answer to the post's question, or null if it asks none",
  "watch_out": "one sentence on the main thing a beginner should know, or null"}
 For each claim, use "correct" if the real data matches, "outdated" if it is close but stale,
 "wrong" if the real data clearly disagrees, and "cant_check" if the real data above doesn't cover
-it. Never guess a figure that isn't listed above. No finance jargon. Don't tell the reader to buy
-or sell; you can explain what kind of person each choice suits.`;
+it. Never guess a figure that isn't listed above. No finance jargon, and no percentages, fees, or
+ratios in anything you write: use plain words and dollar prices. Don't tell the reader to buy or
+sell; you can explain what kind of person each choice suits.`;
 
   const reply = await ask(BREAKDOWN_SYSTEM, breakdownPrompt, { attempts: SNAPSHOT_ATTEMPTS, deadline });
   const parsed = parseJsonObject<{

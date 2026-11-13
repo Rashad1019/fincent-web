@@ -40,12 +40,5 @@ export type Fundamentals = {
 export type Profile = {
   name: string;
   kind: string | null;
-  summary: string | null;
-  family: string | null;
-  category: string | null;
-  sector: string | null;
-  industry: string | null;
   isFund: boolean;
-  /** Fraction: 0.0003 = 0.03% a year. */
-  expenseRatio: number | null;
 };

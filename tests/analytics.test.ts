@@ -26,7 +26,7 @@ describe("technicals", () => {
   it("below the trend, the buy answer says when to look again", () => {
     const result = buyAnswer(chart(80, 85, 90), { betterPrice: null, trendLine: 90 }, "USD");
     expect(result.answer).toBe("Not yet");
-    expect(result.nextStep).toContain("climbs back above 90.00 USD");
+    expect(result.nextStep).toContain("climbs back above $90.00");
   });
   it("works without enough history", () => {
     expect(buyAnswer(chart(100), { betterPrice: null, trendLine: null }, null)).toEqual({ answer: "No rush", nextStep: "" });

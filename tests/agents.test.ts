@@ -7,7 +7,7 @@ import { PROFILES } from "@/lib/agents/profiles";
 import { parseVerdict, withoutVerdict } from "@/lib/agents/verdicts";
 import { toHtml } from "@/components/Markdown";
 import { inflationYoy, blsSeries } from "@/lib/data/macro";
-import { normalizeExtracted, overlap, parseJsonObject } from "@/lib/snapshot";
+import { normalizeExtracted, parseJsonObject } from "@/lib/snapshot";
 
 describe("personas", () => {
   it("all 16 have a prompt and a profile", () => {
@@ -111,12 +111,6 @@ describe("snapshot helpers", () => {
     });
     expect(result.tickers).toEqual(["QQQM", "SCHD", "VOO"]);
     expect(result.claims).toEqual([{ ticker: "QQQM", text: "Fee is 0.15%" }]);
-  });
-  it("overlap counts the weight both funds share", () => {
-    const a = [{ symbol: "AAPL", weight: 0.1 }, { symbol: "XOM", weight: 0.05 }];
-    const b = [{ symbol: "AAPL", weight: 0.04 }, { symbol: "KO", weight: 0.05 }];
-    expect(overlap(a, b)).toBeCloseTo(0.04, 10);
-    expect(overlap([], b)).toBeNull();
   });
 });
 

@@ -47,7 +47,9 @@ for (const name of ["noisy", "rising", "pullback", "short"] as const) {
       const levels = priceLevels(c.prices, summary);
       close(levels.betterPrice, c.levels.better_price);
       close(levels.trendLine, c.levels.trend_line);
-      expect(buyAnswer(summary, levels, "USD")).toEqual({ answer: c.buy.answer, nextStep: c.buy.next_step });
+      // Same wording as Python; prices now read "$733.00" instead of "733.00 USD".
+      const dollars = (text: string) => text.replace(/([\d,]+\.\d{2}) USD/g, (_, n) => `$${n}`);
+      expect(buyAnswer(summary, levels, "USD")).toEqual({ answer: c.buy.answer, nextStep: dollars(c.buy.next_step) });
     });
     it("risk", () => {
       close(annualizedVolatility(c.prices), c.vol);

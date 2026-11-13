@@ -11,7 +11,7 @@ export const maxDuration = 90;
 // Shared by every visitor for a week. A failed call throws, so it isn't cached.
 const cachedExplain = unstable_cache(
   (ticker: string, profile: Profile) => explain(ticker, profile),
-  ["explain-v1"],
+  ["explain-v2"],
   { revalidate: CACHE_SECONDS.explanation },
 );
 

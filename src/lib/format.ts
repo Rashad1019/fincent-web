@@ -24,7 +24,8 @@ export function fmtMoney(value: number | null | undefined): string {
   return fmtRatio(value);
 }
 
-/** A price with its currency code: "759.18 USD". */
+/** A price people can read: "$759.18" for dollars, "759.18 EUR" otherwise. */
 export function fmtPrice(value: number, currency?: string | null): string {
-  return `${fmtRatio(value)} ${currency ?? ""}`.trim();
+  if (!currency || currency === "USD") return `$${fmtRatio(value)}`;
+  return `${fmtRatio(value)} ${currency}`;
 }

@@ -3,7 +3,6 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 
 import { CACHE_SECONDS, RISK_RANGE } from "./config";
-import { fmtMoney, fmtPct, fmtRatio } from "./format";
 import { assembleMetrics } from "./agents/metrics";
 import type { Metrics } from "./agents/prompt";
 import { annualizedVolatility, historicalVar, sharpeRatio } from "./analytics/risk";
@@ -18,13 +17,10 @@ import {
   type Levels,
   type Mood,
 } from "./analytics/technicals";
-import { DataSourceError } from "./data/errors";
-import * as fmp from "./data/fmp";
 import { getMacro } from "./data/macro";
+import * as sec from "./data/sec";
 import type { Bar, Fundamentals, History, Profile } from "./data/types";
 import { FUND_TYPES, getDividends, getHistory, KINDS } from "./data/yahoo";
-
-export type KeyNumber = { label: string; value: string };
 
 /** Everything the dashboard, Analytics, and the personas need for one ticker. */
 export type Lookup = {
@@ -38,7 +34,6 @@ export type Lookup = {
   entry: Entry;
   levels: Levels;
   buy: BuyAnswer;
-  keyNumbers: KeyNumber[];
   metrics: Metrics;
   hasFundamentals: boolean;
   analytics: {
@@ -52,23 +47,16 @@ export type Lookup = {
 
 const optional = <T>(promise: Promise<T>): Promise<T | null> => promise.catch(() => null);
 
-/** Daily bars from Yahoo, with FMP as the backup. */
-export async function dailyHistory(ticker: string, range: string, days: number): Promise<History> {
-  try {
-    return await getHistory(ticker, range, "1d", CACHE_SECONDS.history);
-  } catch (error) {
-    if (!(error instanceof DataSourceError)) throw error;
-    const bars = await optional(fmp.getDailyHistory(ticker, days));
-    if (!bars?.length) throw error;
-    return { bars, meta: { symbol: ticker, name: null, currency: null, price: null, instrumentType: null } };
-  }
+/** Daily bars from Yahoo. */
+export function dailyHistory(ticker: string, range: string): Promise<History> {
+  return getHistory(ticker, range, "1d", CACHE_SECONDS.history);
 }
 
-function priceOnly(price: number, isFund: boolean, marketCap: number | null): Fundamentals {
+function priceOnly(price: number, isFund: boolean): Fundamentals {
   return {
     price,
     isFund,
-    marketCap,
+    marketCap: null,
     eps: null,
     dividendYield: null,
     payoutRatio: null,
@@ -92,38 +80,26 @@ function safe<T>(compute: () => T): T | null {
 }
 
 async function buildLookup(ticker: string): Promise<Lookup> {
-  const year = await dailyHistory(ticker, RISK_RANGE, 369);
-  const [fmpProfile, dividends, macro, fiveYears] = await Promise.all([
-    optional(fmp.getProfile(ticker)),
-    getDividends(ticker).catch(() => []),
-    getMacro(),
-    optional(dailyHistory(ticker, "5y", 1830)),
-  ]);
-
+  const year = await dailyHistory(ticker, RISK_RANGE);
   const { meta } = year;
-  const isFund = FUND_TYPES.has(meta.instrumentType ?? "") || Boolean(fmpProfile?.isFund);
-  const [fundInfo, companyFigures] = await Promise.all([
-    isFund ? optional(fmp.getFundInfo(ticker)) : null,
-    !isFund && fmpProfile ? optional(fmp.getFundamentals(ticker, fmpProfile)) : null,
-  ]);
-
   const closes = year.bars.map((bar) => bar.close);
   const price = meta.price ?? closes[closes.length - 1];
-  const currency = meta.currency ?? fmpProfile?.currency ?? null;
-  const fundamentals = companyFigures
-    ? { ...companyFigures, price }
-    : priceOnly(price, isFund, fmpProfile?.marketCap ?? null);
+  const currency = meta.currency;
+  const isFund = FUND_TYPES.has(meta.instrumentType ?? "");
+
+  const [dividends, macro, fiveYears, companyFigures] = await Promise.all([
+    getDividends(ticker).catch(() => []),
+    getMacro(),
+    optional(dailyHistory(ticker, "5y")),
+    // SEC figures are in dollars, so they only line up with a dollar price.
+    !isFund && currency === "USD" ? optional(sec.getFundamentals(ticker, price)) : null,
+  ]);
+  const fundamentals = companyFigures ?? priceOnly(price, isFund);
 
   const profile: Profile = {
-    name: fmpProfile?.name ?? meta.name ?? ticker,
-    kind: KINDS[meta.instrumentType ?? ""] ?? (fmpProfile ? (isFund ? "Fund" : "Stock") : null),
-    summary: fmpProfile?.summary ?? null,
-    family: fundInfo?.family ?? null,
-    category: fundInfo?.category ?? null,
-    sector: fmpProfile?.sector ?? null,
-    industry: fmpProfile?.industry ?? null,
+    name: meta.name ?? ticker,
+    kind: KINDS[meta.instrumentType ?? ""] ?? null,
     isFund,
-    expenseRatio: fundInfo?.expenseRatio ?? null,
   };
 
   const longBars: Bar[] = fiveYears?.bars ?? year.bars;
@@ -132,22 +108,6 @@ async function buildLookup(ticker: string): Promise<Lookup> {
   const levels = priceLevels(closes, summary);
   const volatility = safe(() => annualizedVolatility(closes));
   const var95 = safe(() => historicalVar(closes));
-
-  const rows: [string, number | null, (value: number) => string][] = isFund
-    ? [
-        ["Yearly fee", profile.expenseRatio, fmtPct],
-        ["Dividend yield", metrics.dividend_yield as number | null, fmtPct],
-        ["Yearly swing (volatility)", volatility, fmtPct],
-        ["Bad-day loss (95%)", var95, fmtPct],
-      ]
-    : [
-        ["Company value", fundamentals.marketCap, fmtMoney],
-        ["P/E ratio", metrics.pe_ratio as number | null, fmtRatio],
-        ["Dividend yield", metrics.dividend_yield as number | null, fmtPct],
-        ["Profit margin", metrics.profit_margin as number | null, fmtPct],
-        ["Yearly swing (volatility)", volatility, fmtPct],
-        ["Bad-day loss (95%)", var95, fmtPct],
-      ];
 
   return {
     ticker,
@@ -160,7 +120,6 @@ async function buildLookup(ticker: string): Promise<Lookup> {
     entry: entryRead(summary),
     levels,
     buy: buyAnswer(summary, levels, currency),
-    keyNumbers: rows.filter(([, value]) => value != null).map(([label, value, render]) => ({ label, value: render(value!) })),
     metrics,
     hasFundamentals: companyFigures != null,
     analytics: {
@@ -174,4 +133,4 @@ async function buildLookup(ticker: string): Promise<Lookup> {
 }
 
 /** Cached for five minutes and shared by every visitor. Failures aren't cached. */
-export const lookup = unstable_cache(buildLookup, ["lookup-v1"], { revalidate: 300 });
+export const lookup = unstable_cache(buildLookup, ["lookup-v2"], { revalidate: 300 });

@@ -10,7 +10,6 @@ type Result = {
   reply?: string;
   verdict?: string | null;
   conviction?: number | null;
-  prompt?: string;
   error?: string;
 };
 type Status = "pending" | "done" | "busy";
@@ -167,7 +166,6 @@ export default function InvestorPanel({ ticker }: { ticker: string }) {
   }
 
   const done = Object.values(statuses).filter((s) => s !== "pending").length;
-  const prompt = results?.find((r) => r.prompt)?.prompt;
 
   return (
     <section>
@@ -234,12 +232,6 @@ export default function InvestorPanel({ ticker }: { ticker: string }) {
               </details>
             );
           })}
-          {prompt && (
-            <details>
-              <summary>Numbers given to the personas</summary>
-              <div><pre>{prompt}</pre></div>
-            </details>
-          )}
         </>
       )}
     </section>
