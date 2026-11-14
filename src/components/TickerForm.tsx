@@ -29,7 +29,7 @@ export default function TickerForm({
           className="input"
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder="e.g. IVV, VOO, AAPL"
+          placeholder="Try SPY, AAPL, or QQQ"
           autoCapitalize="characters"
           autoComplete="off"
           spellCheck={false}

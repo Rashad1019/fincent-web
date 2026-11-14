@@ -1,16 +1,9 @@
 export function Hero() {
   return (
     <section className="hero">
-      <div className="kicker">Fincent / independent market intelligence</div>
-      <h1>
-        Read the market.
-        <br />
-        Know the business.
-      </h1>
-      <p>
-        Price action, intrinsic value, risk, and sixteen investor frameworks — brought into one disciplined
-        research view.
-      </p>
+      <div className="kicker">Fincent / no jargon</div>
+      <h1>Know what you&apos;re buying.</h1>
+      <p>What it is. What it&apos;s worth today. Whether now&apos;s the time. Explained like a friend would.</p>
     </section>
   );
 }
