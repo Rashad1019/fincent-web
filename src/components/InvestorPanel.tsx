@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { PROFILE_BY_NAME, profilesByGroup } from "@/lib/agents/profiles";
+import { myMove, tally } from "@/lib/agents/verdicts";
 import Markdown from "./Markdown";
 
 type Result = {
@@ -24,6 +25,13 @@ const JOKES = [
   "I asked my broker for a stock that would let me sleep at night. They sold me a mattress company.",
   "My long-term investing plan is simple: buy low, then check my account a lot less often.",
 ];
+// What each verdict looks like on the page.
+const VERDICT_LOOK: Record<string, { icon: string; words: string }> = {
+  "Buy now": { icon: "🟢", words: "Buy now" },
+  Wait: { icon: "🟡", words: "Wait for a better price" },
+  Skip: { icon: "🔴", words: "Skip it" },
+};
+
 const NETWORK_BUSY = "The network is busy right now. Please try again in a few minutes.";
 
 export function ProfilesList({ open = false }: { open?: boolean }) {
@@ -204,27 +212,23 @@ export default function InvestorPanel({ ticker }: { ticker: string }) {
 
       {results && !running && (
         <>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Investor</th><th>Verdict</th><th>How sure (1-10)</th></tr>
-              </thead>
-              <tbody>
-                {results.map((r) => (
-                  <tr key={r.persona}>
-                    <td>{r.persona}</td>
-                    <td>{r.verdict ?? "—"}</td>
-                    <td className="mono">{r.conviction ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <div className="tally">{tally(results)}</div>
           {results.map((r) => {
             const profile = PROFILE_BY_NAME[r.persona];
+            const look = r.verdict ? VERDICT_LOOK[r.verdict] : null;
+            const move = myMove(r.reply);
             return (
-              <details key={r.persona}>
-                <summary>{r.persona}: {r.verdict ?? "no verdict"}</summary>
+              <details key={r.persona} className="investor">
+                <summary>
+                  <span className="verdict-line">
+                    {r.reply
+                      ? look
+                        ? `${look.icon} ${r.persona} says: ${look.words}`
+                        : `⚪ ${r.persona} didn't give a clear answer`
+                      : `⚠️ ${r.persona} couldn't answer (the network was busy)`}
+                  </span>
+                  {move && <span className="move-line">&ldquo;{move}&rdquo;</span>}
+                </summary>
                 <div>
                   {profile && <p className="small">{profile.group} · {profile.summary}</p>}
                   {r.reply ? <Markdown text={r.reply} /> : <div className="notice error">The network was busy, so this investor could not answer.</div>}
@@ -232,6 +236,7 @@ export default function InvestorPanel({ ticker }: { ticker: string }) {
               </details>
             );
           })}
+          <p className="small">Click an investor to read their full reasons.</p>
         </>
       )}
     </section>

@@ -4,7 +4,7 @@ import { ask, EXPLANATION_ATTEMPTS, PERSONA_ATTEMPTS } from "@/lib/agents/openro
 import { buildPrompt } from "@/lib/agents/prompt";
 import { PERSONAS } from "@/lib/agents/personas";
 import { PROFILES } from "@/lib/agents/profiles";
-import { parseVerdict, withoutVerdict } from "@/lib/agents/verdicts";
+import { myMove, parseVerdict, tally, withoutVerdict } from "@/lib/agents/verdicts";
 import { toHtml } from "@/components/Markdown";
 import { inflationYoy, blsSeries } from "@/lib/data/macro";
 import { normalizeExtracted, parseJsonObject } from "@/lib/snapshot";
@@ -26,6 +26,25 @@ describe("personas", () => {
 });
 
 describe("verdicts", () => {
+  it("myMove pulls the first sentence of My move", () => {
+    const reply = "**My take:** Solid fund.\n\n**My move:** Wait. I'd buy closer to $733.00.\n\n**Why:** It ran up fast.";
+    expect(myMove(reply)).toBe("Wait. I'd buy closer to $733.00.");
+    expect(myMove("**My move:** I'd buy today and hold for years.\n**Why:** Cheap.")).toBe("I'd buy today and hold for years.");
+    expect(myMove("My move: Skip it for now\nWhy: too risky")).toBe("Skip it for now");
+    expect(myMove("No parts here.")).toBeNull();
+    expect(myMove(undefined)).toBeNull();
+  });
+  it("tally counts each verdict in plain words", () => {
+    expect(
+      tally([
+        { reply: "a", verdict: "Wait" },
+        { reply: "b", verdict: "Wait" },
+        { reply: "c", verdict: "Buy now" },
+        { verdict: null },
+      ]),
+    ).toBe("3 investors weighed in: 1 says buy now, 2 say wait, 0 say skip. 1 couldn't answer.");
+    expect(tally([{ reply: "a", verdict: "Skip" }])).toBe("1 investor weighed in: 0 say buy now, 0 say wait, 1 says skip.");
+  });
   it("reads the last verdict line", () => {
     expect(parseVerdict("VERDICT: WAIT | conviction 4\nVERDICT: SKIP | conviction 8")).toEqual(["Skip", 8]);
     expect(parseVerdict("VERDICT: buy | conviction 7")).toEqual(["Buy now", 7]);
